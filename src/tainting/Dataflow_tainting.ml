@@ -920,6 +920,8 @@ let find_lval_taint_sources env incoming_taints lval =
   let lval_env = Lval_env.add env.lval_env lval taints_sources_mut in
   (Taints.union taints_sources_reg taints_sources_mut, lval_env)
 
+let shared_id_info_for_fake_java_props = G.empty_id_info ()
+
 let rec check_tainted_lval env (lval : IL.lval) : Taints.t * Lval_env.t =
   let new_taints, lval_in_env, lval_env = check_tainted_lval_aux env lval in
   let taints_from_env = status_to_taints lval_in_env in
@@ -942,7 +944,7 @@ and propagate_taint_via_unresolved_java_getters_and_setters env e args
        ({
           base = Var _obj;
           rev_offset =
-            [ { o = Dot ({ IL.ident = method_str, method_tok; id_info; _ } as m); _ } ];
+            [ { o = Dot ({ IL.ident = method_str, method_tok; id_info; _ }); _ } ];
         } as lval);
    _;
   }
@@ -955,10 +957,9 @@ and propagate_taint_via_unresolved_java_getters_and_setters env e args
       in
       (* TODO: Fix this with naming info coming from Pro via some hook. *)
       let prop_name =
-        { m with
-          ident = (prop_str, method_tok);
-          (* sid = G.SId.unsafe_default;
-          id_info = G.empty_id_info (); *)
+        { ident = (prop_str, method_tok);
+          sid = G.SId.unsafe_default;
+          id_info = shared_id_info_for_fake_java_props;
         }
       in
       let prop_lval =

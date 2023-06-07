@@ -942,7 +942,7 @@ and propagate_taint_via_unresolved_java_getters_and_setters env e args
        ({
           base = Var _obj;
           rev_offset =
-            [ { o = Dot { IL.ident = method_str, method_tok; id_info; _ }; _ } ];
+            [ { o = Dot ({ IL.ident = method_str, method_tok; id_info; _ } as m); _ } ];
         } as lval);
    _;
   }
@@ -955,10 +955,10 @@ and propagate_taint_via_unresolved_java_getters_and_setters env e args
       in
       (* TODO: Fix this with naming info coming from Pro via some hook. *)
       let prop_name =
-        {
+        { m with
           ident = (prop_str, method_tok);
-          sid = G.SId.unsafe_default;
-          id_info = G.empty_id_info ();
+          (* sid = G.SId.unsafe_default;
+          id_info = G.empty_id_info (); *)
         }
       in
       let prop_lval =

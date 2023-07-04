@@ -405,7 +405,7 @@ For more information see https://semsgrep.dev
     ; Handwritten code can easily work around this bug.
     ; We used to use this library, but it conflicts with OCaml 5.0. So
     ; better not to use, until the above bug gets fixed.
-    ; (ppx_sexp_conv ( = v0.14.3))
+    (ppx_sexp_conv ( = v0.14.3))
     re
     pcre
     ocamlgraph

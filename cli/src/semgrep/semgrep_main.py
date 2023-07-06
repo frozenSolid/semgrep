@@ -8,6 +8,7 @@ from sys import setrecursionlimit
 from typing import Any
 from typing import Collection
 from typing import Dict
+from typing import FrozenSet
 from typing import List
 from typing import Optional
 from typing import Sequence
@@ -218,6 +219,7 @@ def run_rules(
     Dict[str, List[FoundDependency]],
     List[DependencyParserError],
 ]:
+
     print_scan_status(filtered_rules, target_manager)
 
     join_rules, rest_of_the_rules = partition(
@@ -250,6 +252,19 @@ def run_rules(
 
     dependencies = {}
     dependency_parser_errors = []
+
+    def update_scanned_lockfiles(scanned_lockfiles: FrozenSet[Path]) -> None:
+        for lockfile in scanned_lockfiles:
+            # Add lockfiles as a target that was scanned
+            output_extra.all_targets.add(lockfile)
+            # Warning temporal assumption: this is the only place we process
+            # parse errors. We silently toss them in other places we call parse_lockfile_path
+            # It doesn't really matter where it gets handled as long as we collect the parse errors somewhere
+            deps, parse_error = parse_lockfile_path(lockfile)
+            dependencies[str(lockfile)] = deps
+            if parse_error:
+                dependency_parser_errors.append(parse_error)
+
     if len(dependency_aware_rules) > 0:
         from semgrep.dependency_aware_rule import (
             generate_unreachable_sca_findings,
@@ -284,16 +299,7 @@ def run_rules(
                 rule_matches_by_rule[rule].extend(dep_rule_matches)
                 output_handler.handle_semgrep_errors(dep_rule_errors)
 
-                for lockfile in scanned_lockfiles:
-                    # Add lockfiles as a target that was scanned
-                    output_extra.all_targets.add(lockfile)
-                    # Warning temporal assumption: this is the only place we process
-                    # parse errors. We silently toss them in other places we call parse_lockfile_path
-                    # It doesn't really matter where it gets handled as long as we collect the parse errors somewhere
-                    deps, parse_error = parse_lockfile_path(lockfile)
-                    dependencies[str(lockfile)] = deps
-                    if parse_error:
-                        dependency_parser_errors.append(parse_error)
+                update_scanned_lockfiles(scanned_lockfiles)
             else:
                 (
                     dep_rule_matches,
@@ -306,16 +312,8 @@ def run_rules(
 
         # Generate stats per lockfile:
         for ecosystem in ECOSYSTEM_TO_LOCKFILES.keys():
-            for lockfile in target_manager.get_lockfiles(ecosystem):
-                # Add lockfiles as a target that was scanned
-                output_extra.all_targets.add(lockfile)
-                # Warning temporal assumption: this is the only place we process
-                # parse errors. We silently toss them in other places we call parse_lockfile_path
-                # It doesn't really matter where it gets handled as long as we collect the parse errors somewhere
-                deps, parse_error = parse_lockfile_path(lockfile)
-                dependencies[str(lockfile)] = deps
-                if parse_error:
-                    dependency_parser_errors.append(parse_error)
+            update_scanned_lockfiles(target_manager.get_lockfiles(ecosystem))
+
     return (
         rule_matches_by_rule,
         semgrep_errors,

@@ -1,5 +1,9 @@
-let parse_pattern _ _ str =
-  let any = Parse_ruby.any_of_string str in
+let parse_pattern print_errors _ str =
+  let any =
+    str
+    |> Pfff_or_tree_sitter.run_pattern ~print_errors
+         [ TreeSitterPat Parse_ruby_tree_sitter.parse_pattern ]
+  in
   Ruby_to_generic.any any
 
 let parse_target _ file =

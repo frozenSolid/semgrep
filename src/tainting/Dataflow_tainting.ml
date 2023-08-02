@@ -972,12 +972,27 @@ let find_lval_taint_sources env incoming_taints lval =
   let taints_sources_reg, lval_env =
     reg_source_pms |> taints_of_matches env ~incoming:incoming_taints
   in
-  let taints_sources_mut, lval_env =
+  let mut_source_pms_return, mut_source_pms_not_return =
     mut_source_pms
+    |> List.partition (fun (m : R.taint_source tmatch) ->
+           m.spec.source_return_taint)
+  in
+  let taints_sources_mut_return, lval_env =
+    mut_source_pms_return
     |> taints_of_matches { env with lval_env } ~incoming:incoming_taints
   in
+  let taints_sources_mut_not_return, lval_env =
+    mut_source_pms_not_return
+    |> taints_of_matches { env with lval_env } ~incoming:incoming_taints
+  in
+  let taints_sources_mut =
+    taints_sources_mut_not_return |> Taints.union taints_sources_mut_return
+  in
   let lval_env = Lval_env.add lval_env lval taints_sources_mut in
-  (Taints.union taints_sources_reg taints_sources_mut, lval_env)
+  let taints_to_return =
+    Taints.union taints_sources_reg taints_sources_mut_return
+  in
+  (taints_to_return, lval_env)
 
 let rec check_tainted_lval env (lval : IL.lval) : Taints.t * Lval_env.t =
   let new_taints, lval_in_env, lval_env = check_tainted_lval_aux env lval in
@@ -1212,11 +1227,11 @@ and check_tainted_expr env exp : Taints.t * Lval_env.t =
   let check env = check_tainted_expr env in
   let check_subexpr exp =
     match exp.e with
-    | Fetch lval -> check_tainted_lval env lval
-    | FixmeExp (_, _, Some e) -> check env e
+    | Fetch _
     | Literal _
     | FixmeExp (_, _, None) ->
         (Taints.empty, env.lval_env)
+    | FixmeExp (_, _, Some e) -> check env e
     | Composite (_, (_, es, _)) -> union_map_taints_and_vars env check es
     | Operator ((op, _), es) ->
         let _, args_taints, lval_env = check_function_call_arguments env es in
@@ -1293,8 +1308,11 @@ and check_tainted_expr env exp : Taints.t * Lval_env.t =
   | None ->
       let taints_exp, lval_env = check_subexpr exp in
       let taints_sources, lval_env =
-        orig_is_source env.config exp.eorig
-        |> taints_of_matches { env with lval_env } ~incoming:taints_exp
+        match exp.e with
+        | Fetch lval -> check_tainted_lval env lval
+        | __else__ ->
+            orig_is_source env.config exp.eorig
+            |> taints_of_matches { env with lval_env } ~incoming:taints_exp
       in
       let taints = Taints.union taints_exp taints_sources in
       let taints_propagated, var_env =

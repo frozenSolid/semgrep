@@ -1328,24 +1328,45 @@ let parse_taint_source ~(is_old : bool) env (key : key) (value : G.expr) :
     Rule.taint_source =
   let default_source_requires = R.default_source_requires (snd key) in
   let parse_from_dict dict f =
-    let source_by_side_effect =
-      take_opt dict env parse_bool "by-side-effect"
-      |> Option.value ~default:false
+    let source_return_taint_opt = take_opt dict env parse_bool "return-taint" in
+    let source_return_taint =
+      source_return_taint_opt |> Option.value ~default:true
     in
+    let source_by_side_effect_opt =
+      take_opt dict env parse_bool "by-side-effect"
+    in
+    let source_by_side_effect =
+      source_by_side_effect_opt |> Option.value ~default:false
+    in
+    if (not source_return_taint) && not source_by_side_effect then
+      error_at_key env.id key
+        "Either `return-taint' or `by-side-effect' must be set";
     let source_control =
       take_opt dict env parse_bool "control" |> Option.value ~default:false
     in
-    let label =
-      take_opt dict env parse_string "label"
-      |> Option.value ~default:R.default_source_label
+    if
+      source_control
+      && (Option.is_some source_return_taint_opt
+         || Option.is_some source_by_side_effect_opt)
+    then
+      error_at_key env.id key
+        "Options `return-taint' and `by-side-effect' only apply to data \
+         sources and this is a control source";
+    let label_opt = take_opt dict env parse_string "label" in
+    let label = label_opt |> Option.value ~default:R.default_source_label in
+    let source_requires_opt =
+      take_opt dict env parse_taint_requires "requires"
     in
     let source_requires =
-      take_opt dict env parse_taint_requires "requires"
-      |> Option.value ~default:default_source_requires
+      source_requires_opt |> Option.value ~default:default_source_requires
     in
+    if Option.is_none label_opt && Option.is_some source_requires_opt then
+      error_at_key env.id key
+        "If a `requires' is specified then it must be accompanied by `label`";
     let source_formula = f env dict in
     {
       R.source_formula;
+      source_return_taint;
       source_by_side_effect;
       source_control;
       label;
@@ -1361,6 +1382,7 @@ let parse_taint_source ~(is_old : bool) env (key : key) (value : G.expr) :
         let source_formula = R.P (parse_rule_xpattern env value) in
         {
           source_formula;
+          source_return_taint = true;
           source_by_side_effect = false;
           source_control = false;
           label = R.default_source_label;

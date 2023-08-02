@@ -147,14 +147,20 @@ type taint_spec = {
 
 and taint_source = {
   source_formula : formula;
+  source_return_taint : bool;
+      (** Setting `return-taint: false` requires `by-side-effect: true`, and it
+   * defines a taint source that only acts by side-effect. E.g. given `lock(x)`
+   * we can make `x` tainted but only after `lock(x)`, whereas the occurrence
+   * of `x` in `lock(x)` would not be affected. This is useful for writing
+   * some typestate rules, see 'tests/rules/taint_typestate.yaml'. *)
   source_by_side_effect : bool;
   source_control : bool;
   label : string;
-      (* The label to attach to the data.
+      (** The label to attach to the data.
        * Alt: We could have an optional label instead, allow taint that is not
        * labeled, and allow sinks that work for any kind of taint? *)
   source_requires : precondition;
-      (* A Boolean expression over taint labels, using Python syntax
+      (** A Boolean expression over taint labels, using Python syntax
        * (see Parse_rule). The operators allowed are 'not', 'or', and 'and'.
        *
        * The expression that is being checked as a source must satisfy this

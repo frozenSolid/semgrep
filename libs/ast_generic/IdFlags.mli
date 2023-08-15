@@ -4,7 +4,7 @@ type t [@@deriving show, eq, ord, hash]
 val empty : t
 (** No flags set *)
 
-val make : hidden:bool -> case_insensitive:bool -> t
+val make : hidden:bool -> case_insensitive:bool -> final:bool -> t
 
 val is_hidden : t -> bool
 (**
@@ -39,4 +39,6 @@ val is_case_insensitive : t -> bool
 *)
 
 val set_case_insensitive : t -> t
+val is_final : t -> bool
+val set_final : t -> t
 val to_int : t -> int

@@ -588,9 +588,7 @@ and id_info = {
   id_svalue : svalue option ref; [@equal fun _a _b -> true]
   (* THINK: Drop option? *)
   (* See module 'IdFlags'. *)
-  id_flags : id_flags ref;
-      [@equal
-        AST_generic_equals.equal_id_info (fun f1 f2 -> IdFlags.equal !f1 !f2)]
+  id_flags : id_flags ref; [@equal fun _a _b -> true]
   (* this is used by Naming_X in deep-semgrep *)
   id_info_id : id_info_id; [@equal fun _a _b -> true]
 }
@@ -2145,7 +2143,7 @@ let empty_id_info ?(hidden = false) ?(case_insensitive = false)
     id_resolved = ref None;
     id_type = ref None;
     id_svalue = ref None;
-    id_flags = ref (IdFlags.make ~hidden ~case_insensitive);
+    id_flags = ref (IdFlags.make ~hidden ~case_insensitive ~final:false);
     id_info_id = id;
   }
 

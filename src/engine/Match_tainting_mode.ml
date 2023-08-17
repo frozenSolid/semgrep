@@ -782,6 +782,15 @@ let mk_file_env lang options taint_config ast =
                && is_global id_info =*= Some true ->
             env := add_to_env !env id id_info vinit
         | __else__ -> super#visit_definition env (entity, def_kind)
+
+      (* THINK: restric to static / constructor again or is_final is enough ? *)
+      method! visit_Assign env lhs tok expr =
+        match lhs with
+        | { e = N (Id (id, id_info)); _ }
+          when IdFlags.is_final !(id_info.id_flags)
+               && is_global id_info =*= Some true ->
+            env := add_to_env !env id id_info (Some expr)
+        | __else__ -> super#visit_Assign env lhs tok expr
     end
   in
   visitor#visit_program env ast;

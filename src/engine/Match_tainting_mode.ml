@@ -638,18 +638,33 @@ let pm_of_finding finding =
         let taint_trace = Some (lazy traces) in
         Some { sink_pm with env = merged_env; taint_trace }
 
+let check_var_def lang options taint_config env id ii expr =
+  let name = AST_to_IL.var_of_id_info id ii in
+  let java_props_cache = D.mk_empty_java_props_cache () in
+  let assign =
+    G.Assign (G.N (G.Id (id, ii)) |> G.e, Tok.fake_tok (snd id) "=", expr)
+    |> G.e |> G.exprstmt
+  in
+  let xs = AST_to_IL.stmt lang assign in
+  let flow = CFG_build.cfg_of_stmts xs in
+  let end_mapping =
+    Dataflow_tainting.fixpoint ~in_env:env lang options taint_config
+      java_props_cache flow
+  in
+  let end_env = end_mapping.(flow.exit).Dataflow_core.out_env in
+  (* CHECK ERROR *)
+  (* fix coupling *)
+  let lval : IL.lval = { base = Var name; rev_offset = [] } in
+  Lval_env.dumb_find end_env lval
+
 let add_to_env lang options taint_config env id ii opt_expr =
   let var = AST_to_IL.var_of_id_info id ii in
   let var_type = Typing.resolved_type_of_id_info lang var.id_info in
-  let source_pms =
-    taint_config.D.is_source (G.Tk (snd id))
-    @
-    match opt_expr with
-    | Some e -> taint_config.D.is_source (G.E e)
-    | None -> []
+  let _denv =
+    D.mk_simple_env ~lang ~options ~config:taint_config ~lval_env:env
   in
-  let taints =
-    source_pms
+  let id_taints =
+    taint_config.D.is_source (G.Tk (snd id))
     |> Common.map (fun (x : _ D.tmatch) -> (x.spec_pm, x.spec))
     (* These sources come from the parameters to a function,
         which are not within the normal control flow of a code.
@@ -657,6 +672,17 @@ let add_to_env lang options taint_config env id ii opt_expr =
     *)
     |> T.taints_of_pms ~incoming:T.Taint_set.empty
   in
+  let expr_taints =
+    match opt_expr with
+    | Some e -> (
+        match check_var_def lang options taint_config env id ii e with
+        | `None
+        | `Clean ->
+            T.Taint_set.empty
+        | `Tainted taints -> taints)
+    | None -> T.Taint_set.empty
+  in
+  let taints = id_taints |> T.Taint_set.union expr_taints in
   let taints =
     Dataflow_tainting.drop_taints_if_bool_or_number options taints var_type
   in
@@ -725,6 +751,23 @@ let mk_fun_input_env lang options taint_config ?(glob_env = Lval_env.empty) fdef
   in
   in_env
 
+(* TODO coupling Constant_propagation put in AST_generic_helpers *)
+let is_global (id_info : G.id_info) =
+  let* kind, _sid = !(id_info.id_resolved) in
+  match kind with
+  | Global (* OSS *)
+  | GlobalName _ (* Pro *)
+  | EnclosedVar ->
+      Some true
+  | LocalVar
+  | Parameter
+  | ImportedEntity _
+  | ImportedModule _
+  | TypeName
+  | Macro
+  | EnumConstant ->
+      Some false
+
 let mk_file_env lang options taint_config ast =
   let add_to_env = add_to_env lang options taint_config in
   let env = ref Lval_env.empty in
@@ -735,7 +778,8 @@ let mk_file_env lang options taint_config ast =
       method! visit_definition env (entity, def_kind) =
         match (entity, def_kind) with
         | { name = EN (Id (id, id_info)); _ }, VarDef { vinit; _ }
-          when IdFlags.is_final !(id_info.id_flags) ->
+          when IdFlags.is_final !(id_info.id_flags)
+               && is_global id_info =*= Some true ->
             env := add_to_env !env id id_info vinit
         | __else__ -> super#visit_definition env (entity, def_kind)
     end

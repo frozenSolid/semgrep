@@ -95,6 +95,16 @@ type java_props_cache
   * to their corresponding property, we cache the results here. *)
 
 val mk_empty_java_props_cache : unit -> java_props_cache
+
+type env
+
+val mk_simple_env :
+  lang:Lang.t ->
+  options:Rule_options.t ->
+  config:config ->
+  lval_env:Taint_lval_env.t ->
+  env
+
 val str_of_name : IL.name -> var
 
 val hook_function_taint_signature :
@@ -108,6 +118,8 @@ val hook_function_taint_signature :
 val hook_find_attribute_in_class :
   (AST_generic.name -> string -> AST_generic.name option) option ref
 (** DEEP *)
+
+val check_tainted_expr : env -> IL.exp -> Taint.Taint_set.t * Taint_lval_env.t
 
 val fixpoint :
   ?in_env:Taint_lval_env.t ->

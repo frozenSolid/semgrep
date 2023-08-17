@@ -211,6 +211,17 @@ type env = {
   java_props : java_props_cache;
 }
 
+let mk_simple_env ~lang ~options ~config ~lval_env =
+  {
+    lang;
+    options;
+    config;
+    fun_name = None;
+    lval_env;
+    top_sinks = Top_sinks.empty;
+    java_props = mk_empty_java_props_cache ();
+  }
+
 (*****************************************************************************)
 (* Hooks *)
 (*****************************************************************************)

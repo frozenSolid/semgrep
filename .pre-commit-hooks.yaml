@@ -26,6 +26,16 @@
   pass_filenames: false
   args: ["ci", "--dry-run", "--baseline-commit", "HEAD"]
 
+# This hook will allow for diff-based scanning of local changes
+- id: semgrep-ci-diff
+  name: semgrep
+  entry: semgrep
+  # See above about why we need this
+  language: python
+  # Needed as ci command does not accept filenames as parameters
+  pass_filenames: false
+  args: ["ci", "--dry-run"]
+
 # docker-based hooks, to use the bleeding edge Semgrep!
 - id: semgrep-docker-develop
   name: semgrep

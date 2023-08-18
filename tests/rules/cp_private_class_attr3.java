@@ -1,17 +1,17 @@
-class Test {
+class Test1 {
 
     private int c;
     private int x;
     private int y;
 
-    public Test() {
+    public Test1() {
         this.c = 42;
-        this.y = 0;
+        this.y = 42;
     }
 
     public void doSomething1() {
         x = 42;
-        y = 1;
+        y = 0;
     }
 
     public void doSomething2(){
@@ -24,6 +24,25 @@ class Test {
     public void doSomething3(){
         //ruleid:test
         foo(c);
+    }
+
+}
+
+class Test2 {
+
+    private int x;
+
+    public Test2() {
+        this.x = 42;
+    }
+
+    public Test2(int x) {
+        this.x = x;
+    }
+
+    public void doSomething4(){
+        //ok:test
+        foo(x);
     }
 
 }
